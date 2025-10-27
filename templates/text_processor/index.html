@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Text Shuffle – Przetwarzanie plików</title>
+    <style>
+        body {
+            font-family: system-ui, sans-serif;
+            max-width: 600px;
+            margin: 40px auto;
+            padding: 20px;
+        }
+        input[type="file"] {
+            margin: 10px 0;
+        }
+        button {
+            background-color: #2563eb;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        button:disabled {
+            background-color: #9ca3af;
+        }
+        #status {
+            margin-top: 20px;
+            font-weight: bold;
+        }
+        #result {
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Text files processing</h1>
+    <form id="uploadForm">
+        <label>Wybierz plik tekstowy (.txt):</label><br>
+        <input type="file" id="fileInput" name="original_file" accept=".txt" required><br>
+        <button type="submit">Wyślij</button>
+    </form>
+
+    <div id="status"></div>
+    <div id="result"></div>
+
+    <script>
+        const form = document.getElementById('uploadForm');
+        const statusDiv = document.getElementById('status');
+        const resultDiv = document.getElementById('result');
+        let fileId = null;
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            if (!file) return alert("Choose file !");
+
+            const formData = new FormData();
+            formData.append('original_file', file);
+
+            statusDiv.innerText = "File loading..";
+            resultDiv.innerHTML = "";
+
+            try {
+                const res = await fetch('/api/upload/', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await res.json();
+
+                if (!res.ok) {
+                    throw new Error(data.error || "Error occured during transfering file ");
+                }
+
+                fileId = data.id;
+                statusDiv.innerText = `File sent! ID: ${fileId}. Start processing...`;
+                pollStatus();
+            } catch (err) {
+                statusDiv.innerText = "❌ " + err.message;
+            }
+        });
+
+        async function pollStatus() {
+            const interval = setInterval(async () => {
+                const res = await fetch(`/api/file/${fileId}/`);
+                const data = await res.json();
+
+                statusDiv.innerText = `Status: ${data.status}`;
+
+                if (data.status === 'done') {
+                    clearInterval(interval);
+                    resultDiv.innerHTML = `<a href="${data.result_file}" target="_blank">📄 Pobierz wynikowy plik</a>`;
+                }
+            }, 2000);
+        }
+    </script>
+</body>
+</html>

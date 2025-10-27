@@ -1,0 +1,9 @@
+Django
+djangorestframework
+psycopg2-binary
+celery
+redis
+gunicorn
+python-dotenv
+pytest
+pytest-django
