@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="pl">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Text Shuffle – Przetwarzanie plików</title>
+    <title>Text File Processor – Upload & Process</title>
     <style>
         body {
             font-family: system-ui, sans-serif;
@@ -35,11 +35,11 @@
     </style>
 </head>
 <body>
-    <h1>Text files processing</h1>
+    <h1>Text File Processor</h1>
     <form id="uploadForm">
-        <label>Wybierz plik tekstowy (.txt):</label><br>
-        <input type="file" id="fileInput" name="original_file" accept=".txt" required><br>
-        <button type="submit">Wyślij</button>
+        <label>Select a text file (.txt, .csv, .jsonl):</label><br>
+        <input type="file" id="fileInput" name="original_file" accept=".txt,.csv,.jsonl" required><br>
+        <button type="submit">Upload</button>
     </form>
 
     <div id="status"></div>
@@ -55,12 +55,12 @@
             e.preventDefault();
             const fileInput = document.getElementById('fileInput');
             const file = fileInput.files[0];
-            if (!file) return alert("Choose file !");
+            if (!file) return alert("Please select a file!");
 
             const formData = new FormData();
             formData.append('original_file', file);
 
-            statusDiv.innerText = "File loading..";
+            statusDiv.innerText = "Uploading file...";
             resultDiv.innerHTML = "";
 
             try {
@@ -71,11 +71,11 @@
                 const data = await res.json();
 
                 if (!res.ok) {
-                    throw new Error(data.error || "Error occured during transfering file ");
+                    throw new Error(data.error || "An error occurred during file upload.");
                 }
 
                 fileId = data.id;
-                statusDiv.innerText = `File sent! ID: ${fileId}. Start processing...`;
+                statusDiv.innerText = `File uploaded! ID: ${fileId}. Processing started...`;
                 pollStatus();
             } catch (err) {
                 statusDiv.innerText = "❌ " + err.message;
@@ -84,16 +84,25 @@
 
         async function pollStatus() {
             const interval = setInterval(async () => {
-                const res = await fetch(`/api/file/${fileId}/`);
-                const data = await res.json();
+                try {
+                    const res = await fetch(`/api/file/${fileId}/`);
+                    const data = await res.json();
 
-                statusDiv.innerText = `Status: ${data.status}`;
+                    statusDiv.innerText = `Status: ${data.status.toUpperCase()}`;
 
-                if (data.status === 'done') {
+                    if (data.status === 'done') {
+                        clearInterval(interval);
+                        resultDiv.innerHTML = `<a href="${data.result_file}" target="_blank">📄 Download processed file</a>`;
+                    } else if (data.status === 'failed') {
+                        clearInterval(interval);
+                        resultDiv.innerHTML = "";
+                        statusDiv.innerText = `❌ Processing failed: ${data.error_message || 'Unknown error.'}`;
+                    }
+                } catch (err) {
                     clearInterval(interval);
-                    resultDiv.innerHTML = `<a href="${data.result_file}" target="_blank">📄 Pobierz wynikowy plik</a>`;
+                    statusDiv.innerText = "❌ Error while checking status: " + err.message;
                 }
-            }, 2000);
+            }, 2000); // poll every 2 seconds
         }
     </script>
 </body>

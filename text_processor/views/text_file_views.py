@@ -2,7 +2,7 @@ from rest_framework import generics
 from rest_framework.parsers import MultiPartParser
 from text_processor.models.models import TextFile
 from text_processor.serializers.text_file_serializers import TextFileSerializer
-from text_processor.tasks.tasks import process_text_file_task
+from text_processor.tasks.tasks import process_file_task
 from django.shortcuts import render
 
 def index(request):
@@ -48,7 +48,7 @@ class TextFileUploadView(generics.CreateAPIView):
         """
         instance = serializer.save()
         # Trigger Celery task for background processing
-        process_text_file_task.delay(instance.id)
+        process_file_task.delay(instance.id)
 
 
 class TextFileDetailView(generics.RetrieveAPIView):

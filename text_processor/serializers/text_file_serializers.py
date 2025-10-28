@@ -14,4 +14,4 @@ class TextFileSerializer(serializers.ModelSerializer):
         return TextFile.objects.create(user=user, **validated_data)
 
     def validate_original_file(self, original_file):
-        return validate_file_extension(original_file, allowed_ext=['.txt'])
+        return validate_file_extension(original_file)

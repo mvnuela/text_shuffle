@@ -2,9 +2,11 @@ from celery import shared_task
 import logging
 from django.db import DatabaseError
 from text_processor.models.models import TextFile
-from text_processor.services.services import TextProcessingService
+from text_processor.services.text_processor_services import TextProcessingService
+from text_processor.models.file_status_choices import FileStatus
 
 logger = logging.getLogger(__name__)
+
 
 @shared_task(
     bind=True,
@@ -13,44 +15,44 @@ logger = logging.getLogger(__name__)
     retry_kwargs={'max_retries': 3},
     default_retry_delay=10,  # seconds
 )
-def process_text_file_task(self, file_id: int):
+def process_file_task(self, file_id: int):
     """
-    Celery task that asynchronously processes a text file.
+    Celery task to asynchronously process a text file of any supported type.
 
-    This task retrieves a `TextFile` instance by its ID and uses the
-    `TextProcessingService` to process it line by line.
-    It automatically retries in case of I/O or database errors, and
-    updates the file's processing status in the database.
+    Retrieves a `TextFile` by ID and runs `TextProcessingService`,
+    which automatically selects the correct processor (TXT, CSV, etc.)
+    based on file extension.
 
-    Args:
-        self: Celery task instance (automatically provided by Celery).
-        file_id (int): The ID of the `TextFile` model instance to process.
-
-    Raises:
-        self.retry: If an I/O or database error occurs (Celery retries automatically).
-        Exception: For unexpected errors, which are logged and mark the file as failed.
+    The task retries automatically for transient I/O and database errors.
     """
+
     try:
         text_file = TextFile.objects.get(id=file_id)
     except TextFile.DoesNotExist:
-        logger.warning(f"TextFile with ID {file_id} does not exist — skipping task.")
+        logger.warning(f"TextFile with ID={file_id} does not exist — skipping task.")
         return
 
-    logger.info(f"Starting file processing for TextFile ID {file_id} via Celery.")
+    logger.info(f"Starting asynchronous processing for TextFile ID={file_id} ({text_file.original_file.name}).")
 
     service = TextProcessingService(text_file)
 
     try:
-        service.process_file()
-        logger.info(f"File processing completed successfully for ID {file_id} (status: DONE).")
+        service.process()
+        logger.info(f"File ID={file_id} processed successfully (status: DONE).")
 
     except (IOError, OSError) as e:
-        logger.warning(f"I/O error occurred while processing file ID {file_id}: {e}")
+        logger.warning(f"I/O or OS error for file ID={file_id}: {e}")
+        raise self.retry(exc=e)
+
+    except DatabaseError as e:
+
+        logger.warning(f"Database error while processing file ID={file_id}: {e}")
         raise self.retry(exc=e)
 
     except Exception as e:
-        logger.exception(f"Unexpected error in Celery task for file ID {file_id}: {e}")
-        text_file.status = 'failed'
-        text_file.error_message = str(e)
-        text_file.save()
-        logger.error(f"File ID {file_id} marked as 'failed'. Error: {e}")
+
+        logger.exception(f"Unexpected error while processing file ID={file_id}: {e}")
+        text_file.status = FileStatus.FAILED
+        text_file.error_message = str(e)[:500]
+        text_file.save(update_fields=['status', 'error_message'])
+        logger.error(f"File ID={file_id} marked as FAILED due to unexpected error.")

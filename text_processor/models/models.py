@@ -1,5 +1,5 @@
 from django.db import models
-from text_processor.models.choices import FileStatus
+from text_processor.models.file_status_choices import FileStatus
 from django.conf import settings
 
 class TextFile(models.Model):
