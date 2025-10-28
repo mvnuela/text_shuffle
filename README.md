@@ -3,6 +3,9 @@
 Text Shuffle is a Django web application that allows uploading text files and processing them using various file processors.
 The processing involves shuffling the middle letters of words. The project uses Docker Compose, PostgreSQL, and Redis.
 
+Text Shuffle is designed to handle large text files efficiently. The application processes files **line by line**, rather than loading the entire file into memory. This means even very large files (hundreds of MBs or more) can be processed without running into memory issues. The file I/O uses buffered reading and writing, which reduces system calls and ensures stable performance.
+
+
 ## Installation & Setup
 
 1. **Clone the repository:**
